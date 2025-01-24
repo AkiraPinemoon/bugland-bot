@@ -3,10 +3,9 @@ import sqlite from "sqlite3"
 
 let db: null | Database = null;
 
-async function connectDb() {
-    db = await open({ filename: "sqlite.db", driver: sqlite.Database })
+async function useDb() {
+    if(db == null) db = await open({ filename: "sqlite.db", driver: sqlite.Database })
+    return db
 }
 
-connectDb()
-
-export default db
+export default useDb
