@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, useVueFlow } from '@vue-flow/core'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, useVueFlow, type GraphEdge } from '@vue-flow/core'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -45,13 +45,22 @@ const props = defineProps({
     },
     selected: {
         type: Boolean,
-        required: true,
+        required: false,
     }
 })
 
 const { addSelectedEdges } = useVueFlow()
 
-const path = computed(() => getBezierPath(props))
+const path = computed(() => getBezierPath(props as any))
+
+const inputfield = ref()
+
+onMounted(() => {
+    inputfield.value.innerText = props.data.label
+})
+
+const self: GraphEdge = this as any
+
 </script>
 
 <script lang="ts">
@@ -70,8 +79,8 @@ export default {
             pointerEvents: 'all',
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${path[1]}px,${path[2]}px)`,
-        }" @click="addSelectedEdges([this])" class="nodrag nopan" :class="props.selected ? ' z-10' : ''">
-            <textarea v-model="props.data.label" class="bg-blue-500 rounded p-2"></textarea>
+        }" @mousedown="addSelectedEdges([self])" class="nodrag nopan focus-within:outline outline-2 outline-blue-600" :class="props.selected ? ' z-10' : ''">
+            <div contenteditable="true" @input="props.data.label = inputfield.innerText" ref="inputfield" class="min-w-12 max-w-64 text-center p-2 rounded bg-blue-400 cursor-text"></div>
         </div>
     </EdgeLabelRenderer>
 </template>
