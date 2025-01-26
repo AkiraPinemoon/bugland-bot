@@ -1,10 +1,13 @@
 <template>
-    <div class="w-full h-screen">
-        <VueFlow :nodes="nodes" :edges="edges" class="w-full h-full" :nodeTypes="nodeTypes">
+    <div class="w-full h-screen flex flex-col">
+        <VueFlow :nodes="nodes" :edges="edges" class="w-full grow" :nodeTypes="nodeTypes" :edgeTypes="edgeTypes">
             <MiniMap />
 
             <div class="absolute top-2 left-2 p-2 flex flex-col gap-2">
-                <button @click="addNodes(newNode)"
+                <button @click="flowToDb()"
+                    class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Save</button>
+
+                <button @click="addNodes(newNode())"
                     class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Add Node</button>
                 <button @click="topologicalSort()"
                     class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Auto Arrange</button>
@@ -14,10 +17,10 @@
 </template>
 
 <script setup lang="ts">
-import { Html } from '#components';
-import { ConnectionMode, Position, useVueFlow, type Connection, type GraphEdge, type GraphNode } from '@vue-flow/core';
+import { useVueFlow, type Connection, type GraphEdge, type GraphNode } from '@vue-flow/core';
 import { MiniMap } from '@vue-flow/minimap';
 import { v4 } from 'uuid';
+import DialogEdge from '~/components/DialogEdge.vue';
 import DialogNode from '~/components/DialogNode.vue';
 
 async function flowFromDb() {
@@ -36,7 +39,8 @@ async function flowFromDb() {
             id: response.message_id + response.response_id,
             source: response.message_id,
             target: response.response_id,
-            label: response.response_text
+            data: { label: response.response_text },
+            type: "dialog",
         }
     })
 
@@ -46,6 +50,15 @@ async function flowFromDb() {
     nodes.find((node) => node.id == initialNodeId).data.isRoot = true
 
     return { nodes, edges }
+}
+
+async function flowToDb() {
+    await $fetch("/api/dump", {
+        method: "POST", body: {
+            messages: dbNodes.value,
+            message_responses: dbEdges.value,
+        }
+    });
 }
 
 function topologicalSort() {
@@ -115,7 +128,7 @@ function topologicalSort() {
 
         const row = columnLevels[column];
         const node = nodes.value.find((n) => n.id === nodeId);
-        node.position = { x: column * columnWidth + 100, y: row * columnWidth + 100 };
+        node.position = { x: column * columnWidth + 100, y: row * columnWidth + 100 + (column % 2 ? 0 : 200) };
         node.data.column = column; // Store column data for reference
         columnLevels[column]++;
 
@@ -126,27 +139,50 @@ function topologicalSort() {
     }
 }
 
-const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getEdges, getNodes } = useVueFlow();
+const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getEdges, getNodes, $reset } = useVueFlow();
 
 let flow = await flowFromDb()
-let nodes = flow.nodes
-let edges = flow.edges
-
+let nodes = ref(flow.nodes)
+let edges = ref(flow.edges)
 setTimeout(topologicalSort, 0)
 
+let dbNodes = computed(() => {
+    return getNodes.value.map((node) => {
+        return {
+            message_id: node.id,
+            message_text: node.data.label,
+        }
+    })
+})
 
+let dbEdges = computed(() => {
+    return getEdges.value.map((edge) => {
+        return {
+            message_id: edge.source,
+            response_id: edge.target,
+            response_text: edge.data.label,
+        }
+    })
+})
 
-onConnect(addEdges);
+onConnect((edge) => {
+    edge.type = "dialog"
+    edge.data = { label: "" }
+    addEdges(edge)
+});
 
 const nodeTypes = {
     dialog: markRaw(DialogNode),
 }
 
+const edgeTypes = {
+    dialog: markRaw(DialogEdge),
+}
 
 function newNode() {
     return {
         id: v4(),
-        position: { x: 0, y: 0 },
+        position: { x: 200, y: 200 },
         data: { label: "" },
         type: "dialog"
     }
