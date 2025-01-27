@@ -9,8 +9,8 @@
             </div>
           </Transition>
           <TransitionGroup name="item" tag="button" class="self-end flex flex-col gap-2">
-            <button v-for="response in message.responses_select" :key="response" :disabled="message.message.message_id != current" @click="chat(response.response_id); message.responses_select = [response]" class="self-end">
-              <div v-if="message.message.message_id == current && response.selected" class="bg-green-300 rounded-xl p-2 max-w-lg">
+            <button v-for="response in message.responses_select" :key="response" :disabled="message.message.message_id != current" @click="chat(response.response_id); message.responses_select = [response]; response.selected = true" class="self-end">
+              <div v-if="message.message.message_id == current && !response.selected" class="bg-green-300 rounded-xl p-2 max-w-lg">
                 {{ response.response_text }}
               </div>
               <div v-else class="bg-blue-300 rounded-xl p-2 pl-4 pr-4 max-w-lg">
