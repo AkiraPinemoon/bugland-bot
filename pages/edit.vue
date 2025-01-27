@@ -10,7 +10,7 @@
 
                     <button @click="addNodes(newNode())"
                         class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Add Node</button>
-                    <button @click="topologicalSort()"
+                    <button @click="autoArrange()"
                         class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Auto Arrange</button>
                 </div>
             </VueFlow>
@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { MarkerType, useVueFlow, type Connection, type GraphEdge, type GraphNode } from '@vue-flow/core';
+import { MarkerType, useVueFlow } from '@vue-flow/core';
 import { MiniMap } from '@vue-flow/minimap';
 import { v4 } from 'uuid';
 import DialogEdge from '~/components/DialogEdge.vue';
@@ -148,13 +148,20 @@ function topologicalSort() {
     }
 }
 
+function autoArrange() {
+    topologicalSort()
+    fitView({duration: 300})
+}
 
 // setup flow
-const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getViewport, getEdges, getNodes } = useVueFlow();
+const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getViewport, fitView, getEdges, getNodes } = useVueFlow();
 let flow = await flowFromDb()
 let nodes = ref(flow.nodes)
 let edges = ref(flow.edges)
-setTimeout(topologicalSort, 0)
+setTimeout(() => {
+    topologicalSort()
+    setTimeout(fitView, 0)
+}, 0)
 
 onConnect((edge: any) => {
     edge.type = "dialog"
