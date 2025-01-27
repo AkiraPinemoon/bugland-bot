@@ -2,7 +2,7 @@
     <div class="w-full h-screen flex flex-col">
         <ClientOnly>
             <VueFlow :nodes="nodes" :edges="edges" class="w-full grow" :nodeTypes="nodeTypes" :edgeTypes="edgeTypes">
-                <MiniMap />
+                <MiniMap pannable />
 
                 <div class="absolute top-2 left-2 p-2 flex flex-col gap-2">
                     <button @click="flowToDb()"
