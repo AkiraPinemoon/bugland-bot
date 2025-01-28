@@ -6,12 +6,12 @@
 
                 <div class="absolute top-2 left-2 p-2 flex flex-col gap-2">
                     <button @click="flowToDb()"
-                        class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Save</button>
+                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Save</button>
 
-                    <button @click="addNodes(newNode())"
-                        class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Add Node</button>
+                    <button @click="addNewNode()"
+                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Add Node</button>
                     <button @click="autoArrange()"
-                        class="p-2 rounded z-10 bg-gray-800 bg-opacity-50 backdrop-blur-sm">Auto Arrange</button>
+                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Auto Arrange</button>
                 </div>
             </VueFlow>
         </ClientOnly>
@@ -154,7 +154,7 @@ function autoArrange() {
 }
 
 // setup flow
-const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getViewport, fitView, getEdges, getNodes } = useVueFlow();
+const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getViewport, fitView, addSelectedNodes, getEdges, getNodes } = useVueFlow();
 let flow = await flowFromDb()
 let nodes = ref(flow.nodes)
 let edges = ref(flow.edges)
@@ -206,6 +206,13 @@ function newNode() {
         data: { label: "" },
         type: "dialog"
     }
+}
+
+// adds a new node
+function addNewNode() {
+    const node = newNode()
+    addNodes(node)
+    addSelectedNodes([node])
 }
 
 </script>
