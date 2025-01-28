@@ -69,88 +69,152 @@ async function flowToDb() {
 
 // positions nodes to minimize edge-chaos
 function topologicalSort() {
+    const nodes = getNodes;
+    const edges = getEdges;
 
-    const nodes = getNodes
-    const edges = getEdges
-
-    // Step 1: Calculate in-degrees of all nodes
+    // Step 1: Calculate in-degrees and adjacency list
     const inDegree: Record<string, number> = {};
     const adjacencyList: Record<string, string[]> = {};
+    const reverseAdjacencyList: Record<string, string[]> = {};
 
     for (const node of nodes.value) {
         inDegree[node.id] = 0;
         adjacencyList[node.id] = [];
+        reverseAdjacencyList[node.id] = [];
     }
 
     for (const edge of edges.value) {
         const { source, target } = edge;
         inDegree[target]++;
         adjacencyList[source].push(target);
+        reverseAdjacencyList[target].push(source);
     }
 
-    // Step 2: Collect all nodes with in-degree 0
-    const queue = [];
-    for (const nodeId in inDegree) {
-        if (inDegree[nodeId] === 0) {
-            queue.push(nodeId);
+    // Step 2: Detect strongly connected components (SCCs) to handle cycles
+    let index = 0;
+    const stack: string[] = [];
+    const onStack: Record<string, boolean> = {};
+    const indexes: Record<string, number> = {};
+    const lowLinks: Record<string, number> = {};
+    const sccs: string[][] = [];
+
+    function tarjan(nodeId: string) {
+        indexes[nodeId] = index;
+        lowLinks[nodeId] = index;
+        index++;
+        stack.push(nodeId);
+        onStack[nodeId] = true;
+
+        for (const neighbor of adjacencyList[nodeId]) {
+            if (indexes[neighbor] === undefined) {
+                tarjan(neighbor);
+                lowLinks[nodeId] = Math.min(lowLinks[nodeId], lowLinks[neighbor]);
+            } else if (onStack[neighbor]) {
+                lowLinks[nodeId] = Math.min(lowLinks[nodeId], indexes[neighbor]);
+            }
+        }
+
+        // If nodeId is the root of an SCC
+        if (lowLinks[nodeId] === indexes[nodeId]) {
+            const scc: string[] = [];
+            let w;
+            do {
+                w = stack.pop()!;
+                onStack[w] = false;
+                scc.push(w);
+            } while (w !== nodeId);
+            sccs.push(scc);
         }
     }
 
-    // Step 3: Perform topological sort
-    const sorted = [];
-    while (queue.length > 0) {
-        const node = queue.shift();
-        sorted.push(node);
+    for (const node of nodes.value) {
+        if (indexes[node.id] === undefined) {
+            tarjan(node.id);
+        }
+    }
 
-        for (const neighbor of adjacencyList[node!]) {
-            inDegree[neighbor]--;
-            if (inDegree[neighbor] === 0) {
-                queue.push(neighbor);
+    // Step 3: Create a DAG of SCCs
+    const sccInDegree: Record<number, number> = {};
+    const sccAdjacencyList: Record<number, number[]> = {};
+    const sccMap: Record<string, number> = {}; // Map nodeId to SCC index
+
+    sccs.forEach((scc, sccIndex) => {
+        sccInDegree[sccIndex] = 0;
+        sccAdjacencyList[sccIndex] = [];
+        for (const nodeId of scc) {
+            sccMap[nodeId] = sccIndex;
+        }
+    });
+
+    for (const edge of edges.value) {
+        const sourceScc = sccMap[edge.source];
+        const targetScc = sccMap[edge.target];
+        if (sourceScc !== targetScc) {
+            sccAdjacencyList[sourceScc].push(targetScc);
+            sccInDegree[targetScc]++;
+        }
+    }
+
+    // Step 4: Topologically sort SCCs
+    const sccQueue: number[] = [];
+    for (const sccIndex in sccInDegree) {
+        if (sccInDegree[sccIndex] === 0) {
+            sccQueue.push(parseInt(sccIndex));
+        }
+    }
+
+    const sortedSccs: number[] = [];
+    while (sccQueue.length > 0) {
+        const sccIndex = sccQueue.shift()!;
+        sortedSccs.push(sccIndex);
+
+        for (const neighbor of sccAdjacencyList[sccIndex]) {
+            sccInDegree[neighbor]--;
+            if (sccInDegree[neighbor] === 0) {
+                sccQueue.push(neighbor);
             }
         }
     }
 
-    // If sorted.length !== nodes.length, there's a cycle
-    if (sorted.length !== nodes.value.length) {
-        throw new Error("Graph contains a cycle and cannot be topologically sorted.");
-    }
-
-    // Step 4: Arrange nodes in columns of width 400
+    // Step 5: Arrange nodes in columns, considering SCCs
     const columnWidth = 400;
-    const columnLevels: { [key: number]: number } = {}; // Tracks the current row for each column
+    const columnLevels: Record<number, number> = {}; // Tracks the current row for each column
 
-    for (const nodeId of sorted) {
-        // Find the column by looking at its dependencies
-        let column = 0;
-        for (const edge of edges.value) {
-            if (edge.target === nodeId) {
-                column = Math.max(column, nodes.value.find((n) => n.id === edge.source)!.data.column + 1 || 0);
+    for (const sccIndex of sortedSccs) {
+        for (const nodeId of sccs[sccIndex]) {
+            // Determine column based on dependencies
+            let column = 0;
+            for (const edge of edges.value) {
+                if (edge.target === nodeId) {
+                    const sourceNode = nodes.value.find((n) => n.id === edge.source);
+                    column = Math.max(column, sourceNode?.data.column + 1 || 0);
+                }
             }
-        }
 
-        // Determine the row for this column
-        if (!columnLevels[column]) {
-            columnLevels[column] = 0;
+            // Determine the row for this column
+            if (!columnLevels[column]) {
+                columnLevels[column] = 0;
+            }
+            const row = columnLevels[column];
+            const node = nodes.value.find((n) => n.id === nodeId);
+            if (node) {
+                node.position = { x: column * columnWidth + 100, y: row * columnWidth + 100 + (column % 2 ? 0 : 200) };
+                node.data.column = column; // Store column data for reference
+            }
+            columnLevels[column]++;
         }
+    }
 
-        const row = columnLevels[column];
-        const node = nodes.value.find((n) => n.id === nodeId);
-        if (node) {
-            node.position = { x: column * columnWidth + 100, y: row * columnWidth + 100 + (column % 2 ? 0 : 200) };
-            node.data.column = column; // Store column data for reference
-        }
-        columnLevels[column]++;
-
-        for (let node of nodes.value) {
-            updateNode(node.id, node)
-        }
-
+    // Step 6: Update nodes
+    for (const node of nodes.value) {
+        updateNode(node.id, node);
     }
 }
 
+
 function autoArrange() {
     topologicalSort()
-    fitView({duration: 300})
+    fitView({ duration: 300 })
 }
 
 // setup flow
