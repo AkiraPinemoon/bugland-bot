@@ -14,7 +14,7 @@
             <TransitionGroup name="item" tag="button" class="self-end flex flex-col gap-2">
                 <button v-for="response in message.responses_select" :key="response.response_id"
                     :disabled="message.message.message_id != current"
-                    @click="chat(response.response_id); message.responses_select = [response]; response.selected = true"
+                    @click="chat(response.response_id, 1); message.responses_select = [response]; response.selected = true"
                     class="self-end">
                     <div class="relative rounded-b-xl rounded-l-xl p-2 max-w-lg"
                         :class="(message.message.message_id == current && !response.selected) ? 'bg-green-300 dark:bg-green-300' : 'bg-blue-300 dark:bg-blue-300'">
@@ -69,25 +69,25 @@ const current = computed(() => {
     return messages.value.at(-1)!.message.message_id
 })
 
-async function chat(id: string | null) {
+async function chat(id: string | null, delayMult: number) {
     showWait.value = true
 
     let res: any = await $fetch("/api/chat", { method: "POST", body: { message_id: id } })
     messages.value.push(res)
     scrollTo(scrollDiv)
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 1000 * delayMult))
 
     showWait.value = false
     messages.value.at(-1)!.message.show = true
     messages.value.at(-1)!.responses_select = []
-    await new Promise(resolve => setTimeout(resolve, 400))
+    await new Promise(resolve => setTimeout(resolve, 400 * delayMult))
     scrollTo(scrollDiv)
 
     for (const response of res.responses) {
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise(resolve => setTimeout(resolve, 100 * delayMult))
         messages.value.at(-1)!.responses_select.push(response)
     }
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await new Promise(resolve => setTimeout(resolve, 200 * delayMult))
     scrollTo(scrollDiv)
 }
 
@@ -95,7 +95,7 @@ function scrollTo(view: Ref<HTMLElement | null>) {
     view.value?.scrollIntoView({ behavior: "smooth" })
 }
 
-chat(null)
+chat(null, 0)
 
 </script>
 
