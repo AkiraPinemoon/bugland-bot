@@ -58,6 +58,21 @@ const inputfield = ref()
 onMounted(() => {
     inputfield.value.innerText = props.data.label
 })
+
+function cleanPaste(payload: ClipboardEvent) {
+    if (payload.clipboardData?.types.includes("text/plain")) return
+    let text = inputfield.value.innerText
+    setTimeout(() => inputfield.value.innerText = text, 0)
+}
+
+
+function blockDragDrop(ev: DragEvent) {
+    ev.dataTransfer!.effectAllowed = 'none';
+    ev.dataTransfer!.dropEffect = 'none';
+    ev.preventDefault();
+    return false;
+}
+
 </script>
 
 <script lang="ts">
@@ -80,11 +95,13 @@ export default {
             class="nodrag nopan focus-within:outline outline-2 outline-green-600 rounded"
             :class="props.selected ? ' z-10 outline' : ''">
             <div contenteditable="true" @input="props.data.label = inputfield.innerText" ref="inputfield"
+                @paste="cleanPaste" @dragstart="blockDragDrop" @dragover="blockDragDrop"
                 class="min-w-12 max-w-64 text-center p-2 bg-blue-400 rounded cursor-text outline-none"></div>
 
-                <div @click="removeEdges([props as any])" v-if="props.selected" class="absolute h-4 w-4 rounded-full bg-red-500 -top-2 -right-2 flex place-items-center justify-center text-xs cursor-pointer">
-                    X
-                </div>
+            <div @click="removeEdges([props as any])" v-if="props.selected"
+                class="absolute h-4 w-4 rounded-full bg-red-500 -top-2 -right-2 flex place-items-center justify-center text-xs cursor-pointer">
+                X
+            </div>
         </div>
     </EdgeLabelRenderer>
 </template>
