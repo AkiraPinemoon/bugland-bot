@@ -24,7 +24,6 @@ function cleanPaste(payload: ClipboardEvent) {
     setTimeout(() => inputfield.value.innerText = text, 0)
 }
 
-
 function blockDragDrop(ev: DragEvent) {
     ev.dataTransfer!.effectAllowed = 'none';
     ev.dataTransfer!.dropEffect = 'none';
@@ -46,5 +45,7 @@ function blockDragDrop(ev: DragEvent) {
             class="absolute h-4 w-4 rounded-full bg-red-500 -top-2 -right-2 flex place-items-center justify-center text-xs cursor-pointer">
             X
         </div>
+
+        <img v-if="props.data.isRoot" src="assets/arrowRight.svg" class="absolute right-full top-1/2 h-10 flex flex-col justify-center" style="translate: 0 -50%;" />
     </div>
 </template>

@@ -1,61 +1,37 @@
 <template>
-    <div class="w-full h-screen flex flex-col">
+    <div class="w-full h-screen flex">
         <ClientOnly>
-            <VueFlow :nodes="nodes" :edges="edges" class="w-full grow" :nodeTypes="nodeTypes" :edgeTypes="edgeTypes">
+            <div class="h-full flex flex-col p-2 gap-2 bg-gray-100 w-1/4 max-w-96">
+                <button @click="flowToDb()" class="p-2 rounded bg-green-600">Export</button>
+                <button @click="save()" class="p-2 rounded bg-green-600">Save</button>
+
+                <button @click="addNewNode(newNode())" class="p-2 rounded bg-gray-300">Add
+                    Node</button>
+                <button @click="addNewNode(newGroupNode())" class="p-2 rounded bg-gray-300">Add
+                    Group Node</button>
+                <button @click="autoArrange()" class="p-2 rounded bg-gray-300">Auto
+                    Arrange</button>
+
+                <hr />
+                <GroupEditor />
+            </div>
+            <VueFlow :nodes="useSelectedGroup()?.flow.nodes" :edges="useSelectedGroup()?.flow.edges" class="grow"
+                :nodeTypes="nodeTypes" :edgeTypes="edgeTypes">
                 <MiniMap pannable />
-
-                <div class="absolute top-2 left-2 p-2 flex flex-col gap-2">
-                    <button @click="flowToDb()"
-                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Save</button>
-
-                    <button @click="addNewNode()"
-                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Add Node</button>
-                    <button @click="autoArrange()"
-                        class="p-2 rounded z-10 bg-gray-200 bg-opacity-50 backdrop-blur-sm">Auto Arrange</button>
-                </div>
             </VueFlow>
         </ClientOnly>
     </div>
 </template>
 
 <script setup lang="ts">
-import { MarkerType, useVueFlow } from '@vue-flow/core';
+import { useVueFlow, type GraphEdge, type GraphNode } from '@vue-flow/core';
 import { MiniMap } from '@vue-flow/minimap';
 import { v4 } from 'uuid';
 import DialogEdge from '~/components/DialogEdge.vue';
+import DialogGroupNode from '~/components/DialogGroupNode.vue';
 import DialogNode from '~/components/DialogNode.vue';
-
-// fetch db dump and convert to flow
-async function flowFromDb() {
-    let data = await $fetch("/api/dump");
-    const nodes = data.message.map((message) => {
-        return {
-            id: message.message_id,
-            position: { x: 100, y: 100 },
-            data: { label: message.message_text, isRoot: false },
-            type: "dialog",
-        }
-    })
-
-    const edges = data.responses.map((response) => {
-        return {
-            id: response.message_id + response.response_id,
-            source: response.message_id,
-            target: response.response_id,
-            data: { label: response.response_text },
-            markerEnd: MarkerType.ArrowClosed,
-            type: "dialog",
-        }
-    })
-
-    let request: { message: { message_id: string } } = await $fetch("/api/chat", { method: "post", body: { message_id: null } })
-    let initialNodeId = request.message.message_id
-
-    nodes.find((node) => node.id == initialNodeId)!.data.isRoot = true
-
-    return { nodes, edges }
-}
-
+import GroupEditor from '~/components/GroupEditor.vue';
+import type { Group } from '~/types';
 
 // convert to db records and upload
 async function flowToDb() {
@@ -63,6 +39,22 @@ async function flowToDb() {
         method: "POST", body: {
             messages: dbNodes.value,
             message_responses: dbEdges.value,
+        }
+    });
+}
+
+// saves flow to db
+async function save() {
+    if (!groups.value) return
+    const group = useSelectedGroup()
+    if (group) {
+        group.flow.nodes = getNodes.value
+        group.flow.edges = getEdges.value
+    }
+
+    await $fetch("/api/flow", {
+        method: "POST", body: {
+            flow: groups.value
         }
     });
 }
@@ -211,21 +203,21 @@ function topologicalSort() {
     }
 }
 
-
 function autoArrange() {
     topologicalSort()
     fitView({ duration: 300 })
 }
 
+const selectedGroupId = useSelectedGroupId()
+const groups = useGroups()
+
+// load flow from db
+groups.value = await $fetch("/api/flow");
+selectedGroupId.value = groups.value?.mainGroupId!
+
 // setup flow
-const { onConnect, addEdges, addNodes, getConnectedEdges, updateNode, getViewport, fitView, addSelectedNodes, getEdges, getNodes } = useVueFlow();
-let flow = await flowFromDb()
-let nodes = ref(flow.nodes)
-let edges = ref(flow.edges)
-setTimeout(() => {
-    topologicalSort()
-    setTimeout(fitView, 0)
-}, 0)
+const { onConnect, addEdges, addNodes, updateNode, getViewport, fitView, addSelectedNodes, getEdges, getNodes } = useVueFlow();
+setTimeout(() => fitView, 0)
 
 onConnect((edge: any) => {
     edge.type = "dialog"
@@ -235,48 +227,73 @@ onConnect((edge: any) => {
 
 // helpers to convert flow to db records
 let dbNodes = computed(() => {
-    return getNodes.value.map((node) => {
+    const group = useSelectedGroup()
+    if (group) group.flow.nodes = getNodes.value
+    return groups.value?.groups.flatMap((group) => group.flow.nodes.filter((node) => node.type == "dialog").map((node) => {
         return {
             message_id: node.id,
             message_text: node.data.label,
         }
-    })
+    }))
 })
 
 let dbEdges = computed(() => {
-    return getEdges.value.map((edge) => {
-        return {
-            message_id: edge.source,
-            response_id: edge.target,
-            response_text: edge.data.label,
+    const group = useSelectedGroup()
+    if (group) group.flow.edges = getEdges.value
+    return groups.value?.groups.flatMap((group) => group.flow.edges.map((edge) => {
+        const target = group.flow.nodes.find((node) => node.id == edge.target)!
+        if (target.type == "dialog") {
+            return {
+                message_id: edge.source,
+                response_id: edge.target,
+                response_text: edge.data.label,
+            }
+        } else {
+            console.log("export")
+            return {
+                message_id: edge.source,
+                response_id: groups.value?.groups.find((group) => group.id == target.data.group)!.root,
+                response_text: edge.data.label,
+            }
         }
-    })
+    }))
 })
 
 // types of flow elements
 const nodeTypes = {
     dialog: markRaw(DialogNode),
+    dialogGroup: markRaw(DialogGroupNode),
 }
 const edgeTypes = {
     dialog: markRaw(DialogEdge),
 }
 
 // helper to spawn a new node
-function newNode() {
+function newNode(): GraphNode {
     const viewport = getViewport()
     return {
         id: v4(),
         position: { x: (200 - viewport.x) / viewport.zoom, y: (200 - viewport.y) / viewport.zoom },
         data: { label: "" },
         type: "dialog"
-    }
+    } as GraphNode
+}
+
+// helper to spawn a new group node
+function newGroupNode(): GraphNode {
+    const viewport = getViewport()
+    return {
+        id: v4(),
+        position: { x: (200 - viewport.x) / viewport.zoom, y: (200 - viewport.y) / viewport.zoom },
+        data: { label: "" },
+        type: "dialogGroup"
+    } as GraphNode
 }
 
 // adds a new node
-function addNewNode() {
-    const node = newNode()
+function addNewNode(node: GraphNode) {
     addNodes(node)
-    addSelectedNodes([node])
+    addSelectedNodes([node as any])
 }
 
 </script>
