@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { useVueFlow, type GraphEdge, type GraphNode } from '@vue-flow/core';
+import { useVueFlow, type EdgeChange, type GraphEdge, type GraphNode, type NodeChange } from '@vue-flow/core';
 import { MiniMap } from '@vue-flow/minimap';
 import { v4 } from 'uuid';
 import DialogEdge from '~/components/DialogEdge.vue';
@@ -216,14 +216,25 @@ groups.value = await $fetch("/api/flow");
 selectedGroupId.value = groups.value?.mainGroupId!
 
 // setup flow
-const { onConnect, addEdges, addNodes, updateNode, getViewport, fitView, addSelectedNodes, getEdges, getNodes } = useVueFlow();
-setTimeout(() => fitView, 0)
+const { onConnect, addEdges, addNodes, updateNode, getViewport, fitView, addSelectedNodes, onNodesChange, applyNodeChanges, onEdgesChange, applyEdgeChanges, getEdges, getNodes, applyDefault } = useVueFlow();
+
+applyDefault.value = false
+
+onEdgesChange(applyEdgeChanges)
+
+onNodesChange((changes: NodeChange[]) => {
+    // filter to disallow deletion of root nodes
+    changes = changes.filter((change: NodeChange) => !(change.type == "remove" && getNodes.value.find((node) => node.id == change.id)?.data.isRoot))
+    applyNodeChanges(changes)
+})
 
 onConnect((edge: any) => {
     edge.type = "dialog"
     edge.data = { label: "" }
     addEdges(edge)
 });
+
+setTimeout(() => fitView, 0)
 
 // helpers to convert flow to db records
 let dbNodes = computed(() => {
