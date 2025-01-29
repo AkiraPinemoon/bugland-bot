@@ -1,5 +1,5 @@
 <template>
-    <div class="p-4 max-w-xl overflow-clip w-full rounded border border-gray-200 min-h-96 grow max-h-full overflow-y-scroll flex flex-col gap-2">
+    <div class="p-4 relative max-w-xl overflow-clip w-full rounded border border-gray-200 min-h-96 grow max-h-full overflow-y-scroll flex flex-col gap-2">
         <h1>Bugland Chat-Support</h1>
         <hr />
         <div v-for="message in messages" :key="message as any" class="flex flex-col gap-2">
@@ -30,10 +30,13 @@
             ...
         </div>
         <div ref="scrollDiv"></div>
+        <div class="absolute bottom-0 right-0 p-2 opacity-50">{{ converationId }}</div>
     </div>
 </template>
 
 <script lang="ts" setup>
+import { v4 } from 'uuid';
+
 const arrowMessage = {
     top: "0",
     right: "100%",
@@ -44,6 +47,8 @@ const arrowResponse = {
     left: "100%",
     transform: "translate(0,0) rotateZ(270deg)"
 };
+
+const converationId = ref(v4())
 
 const scrollDiv = ref<HTMLElement | null>(null)
 const showWait = ref(false)
@@ -66,13 +71,13 @@ const messages = ref<{
     }[],
 }[]>([])
 const current = computed(() => {
-    return messages.value.at(-1)!.message.message_id
+    return messages.value.at(-1)?.message.message_id
 })
 
 async function chat(id: string | null, delayMult: number) {
     showWait.value = true
 
-    let res: any = await $fetch("/api/chat", { method: "POST", body: { message_id: id } })
+    let res: any = await $fetch("/api/chat", { method: "POST", body: { messageId: id, conversationId: converationId.value, response: messages.value.at(-1)?.responses_select[0].response_text } })
     messages.value.push(res)
     scrollTo(scrollDiv)
     await new Promise(resolve => setTimeout(resolve, 1000 * delayMult))

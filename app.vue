@@ -11,6 +11,7 @@ import { NuxtLink } from '#components';
       <div class="grow"></div>
       <NuxtLink to="/">Support</NuxtLink>
       <NuxtLink to="/edit">Admin Panel</NuxtLink>
+      <NuxtLink to="/log">Logs</NuxtLink>
     </header>
     <NuxtPage />
   </div>
