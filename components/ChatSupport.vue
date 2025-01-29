@@ -14,7 +14,7 @@
             <TransitionGroup name="item" tag="button" class="self-end flex flex-col gap-2">
                 <button v-for="response in message.responses_select" :key="response.response_id"
                     :disabled="message.message.message_id != current"
-                    @click="chat(response.response_id, 1); message.responses_select = [response]; response.selected = true"
+                    @click="message.responses_select = [response]; response.selected = true; chat(response.response_id, 1)"
                     class="self-end">
                     <div class="relative rounded-b-xl rounded-l-xl p-2 max-w-lg"
                         :class="(message.message.message_id == current && !response.selected) ? 'bg-green-300 dark:bg-green-300' : 'bg-blue-300 dark:bg-blue-300'">
