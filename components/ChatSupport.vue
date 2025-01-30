@@ -29,7 +29,7 @@
         <div v-if="showWait">
             ...
         </div>
-        <div ref="scrollDiv"></div>
+        <div ref="scrollDiv" class="mt-4"></div>
         <div class="absolute bottom-0 right-0 p-2 opacity-50">{{ converationId }}</div>
     </div>
 </template>
