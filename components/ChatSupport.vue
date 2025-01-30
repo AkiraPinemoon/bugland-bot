@@ -114,10 +114,6 @@ chat(null, 0)
     transform: translate(-100px)
 }
 
-.item-move {
-    transition: transform 0.5s;
-}
-
 .item-enter-active,
 .item-leave-active {
     transition: all 0.5s;
